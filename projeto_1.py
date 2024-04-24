@@ -2,6 +2,9 @@ import math
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib as mpl
+
+mpl.rcParams['figure.max_open_warning'] = 50
 """
 Uma máquina de indução trifásica, com rotor em gaiola, 4 polos, 60Hz, 20cv, 550V, 1760rpm, foi submetida a ensaios, 
 cujos resultados foram:
@@ -163,8 +166,7 @@ tabela_str = tabela.to_string(index=False)
 print(tabela_str)
 
 """
-    2) Obtenção das curvas de Conjugado x Velocidade para a máquina com tensão nominal.
-        Em N.m e pu
+    2) Obtenção das curvas de Conjugado x Velocidade para a máquina com tensão nominal em N.m
 """
 # Definição de Parâmetros
 
@@ -180,40 +182,34 @@ wm = (1-s)*ns # Velocidade Mecânica
 
 V_nominal = 550/math.sqrt(3) # Tensão Nominal da Máquina Trifásica (Fase - Neutro)
 
+V_th = (V_nominal*X_m)/math.sqrt(pow(R_1,2)+pow((X_1+X_m),2))
+
+w_s = ns*(2*math.pi/60)
+
 # Inicialização de dois vetores de zeros de tamanho 100
 
 potencia = []
 torque = []
 w_mecanico = []
 
-velocidades = np.arange(0,2*ns,1).astype(int)
+velocidades = np.arange(0,ns,1).astype(int)
 
+#Cálculo da Z_th
+Z_th = X_m*1j*(R_1+X_1*1j)/(R_1 + (X_1+X_m)*1j)
+R_th = Z_th.real
+X_th = Z_th.imag
 
 for n in velocidades:
-    # Cálculo da Impedância Equivalente do Motor
-    Z_1 = R_1 + X_1*1j
-    Z_2 = (R_2/s) + X_2*1j
-    X_m_rec = X_m*1j
-    Z_paralelo = (X_m_rec*(Z_2))/(X_m_rec + Z_2)
-    Z_equivalente = (Z_1 + Z_paralelo)
     s = (ns - n)/ns
+    # Cálculo do Torque
 
-    # Cálculo da Corrente de Entrada
-    I_1 = V_nominal/Z_equivalente
+    R_count = pow((R_th+R_2/s),2)
+    X_count = pow((X_th + X_2),2)
 
-    # Cálculo da Corrente de Rotor
-
-    I_2 = (X_m_rec/(X_m_rec + Z_2))*I_1
-
-    # Cálculo da Potência e Velocidade, Nota-se que Torque = Potencia / Velocidade Mecânica
-
-    potencia.append(3*abs(pow(I_2,2))*(R_2/s)*(1-s))
-
-    w_mecanico.append((1-s)*ns)
-    #w_int = [int(i) for i in w_mecanico]
-    torque.append(potencia[-1]/w_mecanico[-1])
+    torque.append((3*pow(V_th,2)*R_2/s)/(w_s*(R_count + X_count)))
 
 
+"""
 plt.figure(figsize=(10, 6))
 
 plt.plot(velocidades, torque, label='Torque vs Velocidade')
@@ -222,13 +218,161 @@ plt.xlabel('Velocidade [rpm]')
 
 plt.ylabel('Torque [N.m]')
 
+plt.legend("Gráfico de Torque x Velocidade")
+
 plt.grid(True)
+
 plt.show()
 
+plt.savefig('torque_vs_velocidade')
+
+plt.close()
+"""
 
 
 
 
 
+"""
+2) Obtenção das curvas de Conjugado x Velocidade para a máquina com tensão nominal em pu
+"""
+
+# Definição de Parâmetros
+
+polos = 4 # Nº de polos da máquina
+freq_nominal = 60 # Frequência de operação da Máquina
+n = 1760 # Velocidade Nominal em rpm
+
+ns = (120/polos)*freq_nominal # Velocidade Síncrona
+
+s = (ns - n)/ns # Escorregamento nominal
+
+wm = (1-s)*ns # Velocidade Mecânica
+
+V_nominal = 550/math.sqrt(3) # Tensão Nominal da Máquina Trifásica (Fase - Neutro)
+
+#cálculo do torque nominal
+  
+#Cálculo da Z_th
+Z_th = X_m*1j*(R_1+X_1*1j)/(R_1 + (X_1+X_m)*1j)
+R_th = Z_th.real
+X_th = Z_th.imag
+
+R_count = pow((R_th+R_2/s),2)
+X_count = pow((X_th + X_2),2)
+
+torque_nominal = (3*pow(V_th,2)*R_2/s)/(w_s*(R_count + X_count))
+ 
+print(f"Torque Nominal = {torque_nominal:.3f} \n")
+
+torque_base = torque_nominal
+
+w_base = wm
+
+torque_pu = []
+w_mecanico_pu = []
+w_mecanico = []
+
+velocidades_pu = np.arange(0,ns,1).astype(int)
+
+for n in velocidades_pu:
+    s = (ns - n)/ns
+    # Cálculo do Torque
+
+    R_count = pow((R_th+R_2/s),2)
+    X_count = pow((X_th + X_2),2)
+
+    torque_pu.append((3*pow(V_th,2)*R_2/s)/(w_s*(R_count + X_count))/torque_base)
+
+    w_mecanico.append((1-s)*ns)
+
+    w_mecanico_pu.append(w_mecanico[-1]/w_base)
 
 
+
+"""
+plt.figure(figsize=(10, 6))
+
+plt.plot(w_mecanico_pu, torque_pu, label='Torque vs Velocidade [pu]')
+
+plt.xlabel('Velocidade [pu]')
+
+plt.ylabel('Torque [pu]')
+
+plt.legend("Gráfico de Torque x Velocidade")
+
+plt.grid(True)
+
+plt.show()
+
+plt.savefig('torque_vs_velocidade_pu')
+
+plt.close()
+"""
+
+
+s = (ns - n)/ns
+
+Z_1 = R_1 + X_1*1j
+
+Z_2 = (R_2/s) + X_2*1j
+
+X_m_rec = X_m*1j
+
+Z_paralelo = (X_m_rec*(Z_2))/(X_m_rec + Z_2)
+
+Z_equivalente = (Z_1 + Z_paralelo)
+
+    # Cálculo da Corrente de Entrada
+I_1 = V_nominal/Z_equivalente
+
+print(I_1)
+
+    # Cálculo da Corrente de Rotor
+
+I_2 = (X_m_rec/(X_m_rec + Z_2))*I_1
+
+potencia_I_1_constante = []
+torque_I_1_constante = []
+w_mecanico = []
+
+velocidades_I_1_constante = np.arange(0,2*ns,1).astype(int)
+
+
+for n in velocidades_I_1_constante:
+    # Cálculo da Impedância Equivalente do Motor
+    Z_2 = (R_2/s) + X_2*1j
+    s = (ns - n)/ns
+
+    I_2 = (X_m_rec/(X_m_rec + Z_2))*I_1
+
+    # Cálculo da Potência e Velocidade, Nota-se que Torque = Potencia / Velocidade Mecânica
+
+    potencia_I_1_constante.append(3*abs(pow(I_2,2))*(R_2/s)*(1-s))
+
+    w_mecanico.append((1-s)*ns)
+    #w_int = [int(i) for i in w_mecanico]
+    torque_I_1_constante.append(potencia_I_1_constante[-1]/w_mecanico[-1])
+
+    plt.figure(figsize=(10, 6))
+
+plt.plot(w_mecanico, torque_I_1_constante, label='Torque vs Velocidade [N.m]')
+
+plt.xlabel('Velocidade [rpm]')
+
+plt.ylabel('Torque [N.m]')
+
+plt.legend("Gráfico de Torque x Velocidade")
+
+plt.grid(True)
+
+plt.show()
+
+plt.savefig('torque_vs_velocidade_I_1_constante')
+
+plt.close()
+
+
+"""
+    3) Obtenção dcurva de Conjugado X Velocidade Mecânica para a máquina alimentada em corrente nominal em pu
+"""
